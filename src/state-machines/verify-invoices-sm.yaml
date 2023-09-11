@@ -1,0 +1,110 @@
+Comment: Invoice Processing
+StartAt: Get Ready
+States:
+  Get Ready:
+    Type: Wait
+    Seconds: 30
+    Next: Validate Status
+    Comment: Delay the workflow execution
+  Validate Status:
+    Type: Choice
+    Choices:
+      - And:
+          - Variable: $.status
+            IsPresent: true
+          - Variable: $.status
+            StringMatches: NEW
+        Next: Get Verification Stamp
+    Default: Failed
+    Comment: Validate that invoice status is NEW
+  Get Verification Stamp:
+    Type: Task
+    Parameters:
+      SecretId: InvoiceStamp
+    Resource: arn:aws:states:::aws-sdk:secretsmanager:getSecretValue
+    Next: Add Verification Parameters
+    Comment: Get secret values from Secrets Manager
+    Retry:
+      - ErrorEquals:
+          - States.ALL
+        BackoffRate: 2
+        IntervalSeconds: 1
+        MaxAttempts: 2
+    Catch:
+      - ErrorEquals:
+          - States.ALL
+        Next: Failed
+    ResultPath: $.result.secretsManager
+    ResultSelector:
+      secret.$: States.StringToJson($.SecretString)
+  Add Verification Parameters:
+    Type: Pass
+    Next: Update Invoices DB
+    ResultPath: $.verification
+    Comment: Add extra parameters to invoice data
+    Parameters:
+      updatedAt.$: $$.Execution.StartTime
+      status: VERIFIED
+      fiscalYear.$: $.result.secretsManager.secret.fiscalYear
+      countryCode.$: $.result.secretsManager.secret.countryCode
+      currencyCode.$: $.result.secretsManager.secret.currencyCode
+  Update Invoices DB:
+    Type: Task
+    Resource: arn:aws:states:::dynamodb:updateItem
+    Parameters:
+      TableName: Invoices
+      Key:
+        invoiceId:
+          S.$: $.invoiceId
+      UpdateExpression: >-
+        SET invoiceStatus = :invoiceStatus, updatedAt = :updatedAt,
+        fiscalYear = :fiscalYear, countryCode = :countryCode, currencyCode = :currencyCode
+      ExpressionAttributeValues:
+        ':updatedAt':
+          S.$: $.verification.updatedAt
+        ':invoiceStatus':
+          S.$: $.verification.status
+        ':fiscalYear':
+          N.$: $.verification.fiscalYear
+        ':countryCode':
+          S.$: $.verification.countryCode
+        ':currencyCode':
+          S.$: $.verification.currencyCode
+    Retry:
+      - ErrorEquals:
+          - States.ALL
+        BackoffRate: 2
+        IntervalSeconds: 1
+        MaxAttempts: 2
+    Catch:
+      - ErrorEquals:
+          - States.ALL
+        Next: Failed
+    ResultPath: $.result.dynamoDb
+    Next: Send Event
+    Comment: Add or update item in DynamoDB global table
+  Send Event:
+    Type: Task
+    Resource: arn:aws:states:::events:putEvents
+    Parameters:
+      Entries:
+       -  EventBusName: Invoices
+          Source: VerifyInvoices
+          DetailType: NewInvoiceVerified
+          Detail:
+            invoiceId.$: $.invoiceId
+            status.$: $.verification.status
+            updatedAt.$: $.verification.updatedAt
+    Retry:
+      - ErrorEquals:
+          - States.ALL
+        BackoffRate: 2
+        IntervalSeconds: 1
+        MaxAttempts: 2
+    TimeoutSeconds: 10
+    HeartbeatSeconds: 3
+    End: true
+    Comment: Events
+  Failed:
+    Type: Fail
+    Comment: Fail state

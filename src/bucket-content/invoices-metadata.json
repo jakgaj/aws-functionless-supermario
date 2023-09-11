@@ -1,0 +1,17 @@
+[
+  {
+    "documentType": "INVOICE",
+    "fileName": "some-invoice-file.001.pdf",
+    "data": {}
+  },
+  {
+    "documentType": "INVOICE",
+    "fileName": "some-invoice-file.002.pdf",
+    "data": {}
+  },
+  {
+    "documentType": "INVOICE",
+    "fileName": "some-invoice-file.003.pdf",
+    "data": {}
+  }
+]
