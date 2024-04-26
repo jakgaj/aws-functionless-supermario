@@ -1,0 +1,108 @@
+Comment: Collect Letters State Machine
+StartAt: Get Ready
+States:
+  Get Ready:
+    Type: Wait
+    Seconds: 30
+    Next: Validate Status
+    Comment: Delay the workflow execution to get ready
+  Validate Status:
+    Type: Choice
+    Choices:
+      - And:
+          - Variable: $.status
+            IsPresent: true
+          - Variable: $.status
+            StringMatches: NEW
+          - Variable: $.documentType
+            IsPresent: true
+          - Variable: $.documentType
+            StringMatches: LOVE_LETTER
+        Next: Get Reaction Emoji
+    Default: Failed
+    Comment: Validate that letter status is new it is a love letter
+  Get Reaction Emoji:
+    Type: Task
+    Parameters:
+      SecretId: ReactionsBank
+    Resource: arn:aws:states:::aws-sdk:secretsmanager:getSecretValue
+    Next: Add Verification Parameters
+    Comment: Get reaction emoji from Reactions Bank
+    Retry:
+      - ErrorEquals:
+          - States.ALL
+        BackoffRate: 2
+        IntervalSeconds: 1
+        MaxAttempts: 2
+    Catch:
+      - ErrorEquals:
+          - States.ALL
+        Next: Failed
+    ResultPath: $.result.secretsManager
+    ResultSelector:
+      secret.$: States.StringToJson($.SecretString)
+  Add Verification Parameters:
+    Type: Pass
+    Next: Update Super Mailbox
+    ResultPath: $.verification
+    Comment: Add extra parameters to invoice data
+    Parameters:
+      updatedAt.$: $$.Execution.StartTime
+      status: COLLECTED
+      reaction.$: States.Base64Decode($.result.secretsManager.secret.heartPurple)
+  Update Super Mailbox:
+    Type: Task
+    Resource: arn:aws:states:::dynamodb:updateItem
+    Parameters:
+      TableName: SuperMailbox
+      Key:
+        letterId:
+          S.$: $.letterId
+      UpdateExpression: >-
+        SET letterStatus = :letterStatus, updatedAt = :updatedAt, reaction = :reaction
+      ExpressionAttributeValues:
+        ':updatedAt':
+          S.$: $.verification.updatedAt
+        ':letterStatus':
+          S.$: $.verification.status
+        ':reaction':
+          S.$: $.verification.reaction
+    Retry:
+      - ErrorEquals:
+          - States.ALL
+        BackoffRate: 2
+        IntervalSeconds: 1
+        MaxAttempts: 2
+    Catch:
+      - ErrorEquals:
+          - States.ALL
+        Next: Failed
+    ResultPath: $.result.dynamoDb
+    Next: Send Event
+    Comment: Add or update item in DynamoDB global table
+  Send Event:
+    Type: Task
+    Resource: arn:aws:states:::events:putEvents
+    Parameters:
+      Entries:
+       -  EventBusName: SuperPost
+          Source: SuperPost
+          DetailType: LetterCollected
+          Detail:
+            letterId.$: $.letterId
+            status.$: $.verification.status
+            updatedAt.$: $.verification.updatedAt
+            reaction.$: $.verification.reaction
+    Retry:
+      - ErrorEquals:
+          - States.ALL
+        BackoffRate: 2
+        IntervalSeconds: 1
+        MaxAttempts: 2
+    TimeoutSeconds: 10
+    HeartbeatSeconds: 3
+    End: true
+    Comment: Send event to local bus
+  Failed:
+    Type: Fail
+    Comment: Fail state

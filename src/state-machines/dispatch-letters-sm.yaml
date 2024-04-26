@@ -1,0 +1,144 @@
+Comment: Dispatch Letters State Machine
+StartAt: Get Documents
+TimeoutSeconds: 300
+States:
+  Get Documents:
+    Type: Task
+    Next: Letters
+    Parameters:
+      Names:
+        - /superPost/config/bucketName
+        - /superPost/config/documentsFile
+    Resource: arn:aws:states:::aws-sdk:ssm:getParameters
+    ResultSelector:
+      bucketName.$: $.Parameters[0].Value
+      bucketKey.$: $.Parameters[1].Value
+    Comment: Get configuration stored in Parameters Store
+  Letters:
+    Type: Map
+    Comment: Create an array from JSON file stored in S3 Bucket
+    Label: Letters
+    ItemReader:
+      Resource: arn:aws:states:::s3:getObject
+      ReaderConfig:
+        InputType: JSON
+      Parameters:
+        Bucket.$: $.bucketName
+        Key.$: $.bucketKey
+    ItemProcessor:
+      ProcessorConfig:
+        Mode: DISTRIBUTED
+        ExecutionType: STANDARD
+      StartAt: Validate Document
+      States:
+        Validate Document:
+          Type: Choice
+          Choices:
+            - And:
+                - Variable: $.documentType
+                  IsPresent: true
+                - Variable: $.documentType
+                  StringEquals: LOVE_LETTER
+              Next: Generate Letter ID
+          Default: Failed
+          Comment: Check if the document is a love letter
+        Generate Letter ID:
+          Type: Pass
+          Next: Update Super Mailbox
+          ResultPath: $.generate
+          Parameters:
+            letterId.$: States.UUID()
+            updatedAt.$: $$.Execution.StartTime
+            status: NEW
+          Comment: Add letter ID and status to the document
+        Update Super Mailbox:
+          Type: Task
+          Resource: arn:aws:states:::dynamodb:putItem
+          Parameters:
+            TableName: SuperMailbox
+            Item:
+              letterId:
+                S.$: $.generate.letterId
+              letterStatus:
+                S.$: $.generate.status
+              letterType:
+                S.$: $.documentType
+              updatedAt:
+                S.$: $.generate.updatedAt
+              sender:
+                M:
+                  name:
+                    S.$: $.sender.name
+                  address:
+                    S.$: $.sender.address
+              recipient:
+                M:
+                  name:
+                    S.$: $.recipient.name
+                  address:
+                    S.$: $.recipient.address
+              message:
+                M:
+                  topic:
+                    S.$: $.message.topic
+                  content:
+                    S.$: $.message.content
+                  language:
+                    S.$: $.message.language
+          Next: New Letter Event
+          ResultPath: $.result.dynamoDb
+          Retry:
+            - ErrorEquals:
+                - States.ALL
+              BackoffRate: 2
+              IntervalSeconds: 1
+              MaxAttempts: 2
+          Catch:
+            - ErrorEquals:
+                - States.ALL
+              Next: Failed
+          TimeoutSeconds: 10
+          HeartbeatSeconds: 3
+          Comment: Add or update record in DynamoDB table
+        New Letter Event:
+          Type: Pass
+          End: true
+          Parameters:
+            Detail:
+              documentType.$: $.documentType
+              letterId.$: $.generate.letterId
+              status.$: $.generate.status
+              updatedAt.$: $.generate.updatedAt
+              sender: 
+                name.$: $.sender.name
+                address.$: $.sender.address
+              recipient:
+                name.$: $.recipient.name
+                address.$: $.recipient.address
+              message:
+                topic.$: $.message.topic
+                content.$: $.message.content
+                language.$: $.message.language
+            DetailType: NewLetters
+            EventBusName: SuperPost
+            Source: SuperPost
+          Comment: Create formatted event with letters data
+        Failed:
+          Type: Fail
+          Comment: Fail state
+    Next: Send Events
+  Send Events:
+    Type: Task
+    Resource: arn:aws:states:::events:putEvents
+    Parameters:
+      Entries.$: $
+    Retry:
+      - ErrorEquals:
+          - States.ALL
+        BackoffRate: 2
+        IntervalSeconds: 1
+        MaxAttempts: 2
+    TimeoutSeconds: 10
+    HeartbeatSeconds: 3
+    End: true
+    Comment: Send array of events to event bus in secondary region
