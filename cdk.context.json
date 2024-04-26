@@ -1,6 +1,6 @@
 {
   "regions": {
-    "primary": "eu-central-1",
-    "secondary": "eu-west-1"
+    "primary": "eu-west-1",
+    "secondary": "eu-central-1"
   }
 }

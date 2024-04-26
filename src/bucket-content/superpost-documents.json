@@ -1,0 +1,50 @@
+[
+  {
+    "documentType": "LOVE_LETTER",
+    "sender": {
+      "name": "Mario",
+      "address": "Rock World"
+    },
+    "recipient": {
+      "name": "Princess Peach",
+      "address": "Cloud World"
+    },
+    "message": {
+      "language": "en",
+      "topic": "All the levels",
+      "content": "You're my greatest adventure and I'm ready to jump into the next level with you, Peach."
+    }
+  },
+  {
+    "documentType": "LOVE_LETTER",
+    "sender": {
+      "name": "Mario",
+      "address": "Rock World"
+    },
+    "recipient": {
+      "name": "Princess Peach",
+      "address": "Cloud World"
+    },
+    "message": {
+      "language": "en",
+      "topic": "All the worlds",
+      "content": "No matter how many worlds I travel through, my path always leads back to you, my Princess."
+    }
+  },
+  {
+    "documentType": "LOVE_LETTER",
+    "sender": {
+      "name": "Mario",
+      "address": "Rock World"
+    },
+    "recipient": {
+      "name": "Princess Peach",
+      "address": "Cloud World"
+    },
+    "message": {
+      "language": "en",
+      "topic": "All the coins",
+      "content": "Dear Peach, you're more precious to me than all the coins in the Mushroom World."
+    }
+  }
+]
