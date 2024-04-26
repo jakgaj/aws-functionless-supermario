@@ -4,13 +4,13 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 
 export class SuperPostSharedStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
     const regions = this.node.tryGetContext('regions');
-    // const characters = this.node.tryGetContext('characters');
 
     // S3 bucket
     const bucket = new s3.Bucket(this, 'Bucket', {
@@ -56,6 +56,47 @@ export class SuperPostSharedStack extends cdk.Stack {
         { region: regions.secondary }
       ],
     });
+
+    // CloudWatch Dashboard for EventBridge events
+    const dashboard = new cloudwatch.Dashboard(this, 'CwDashboard', {
+      dashboardName: 'SuperPost',
+      periodOverride: cloudwatch.PeriodOverride.AUTO,
+      start: "-PT1H"
+    });
+
+    const queryLines = {
+      primary: [
+        'fields detail.letterId as LetterId, detail.sender.name as From, detail.recipient.name as To, detail.message.topic as Topic, detail.status as Status, detail.documentType as Type, detail.updatedAt as UpdatedAt',
+        'filter source = "SuperPost"',
+        'sort @timestamp desc'
+      ],
+      secondary: [
+        'fields detail.letterId as LetterId, detail.sender.name as From, detail.recipient.name as To, detail.topic as Topic, detail.status as Status, detail.reaction as Reaction, detail.updatedAt as UpdatedAt',
+        'filter source = "SuperPost"',
+        'sort @timestamp desc'
+      ]
+    };
+
+    dashboard.addWidgets(
+      new cloudwatch.LogQueryWidget({
+        title: `SuperPost Events (${regions.primary})`,
+        view: cloudwatch.LogQueryVisualizationType.TABLE,
+        width: 24,
+        height: 6,
+        logGroupNames: [ '/aws/events/SuperPost' ],
+        region: regions.primary,
+        queryLines: queryLines.primary
+      }),
+      new cloudwatch.LogQueryWidget({
+        title: `SuperPost Events (${regions.secondary})`,
+        view: cloudwatch.LogQueryVisualizationType.TABLE,
+        width: 24,
+        height: 6,
+        logGroupNames: [ '/aws/events/SuperPost' ],
+        region: regions.secondary,
+        queryLines: queryLines.secondary
+      })
+    );
 
   }
 }

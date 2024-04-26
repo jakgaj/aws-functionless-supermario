@@ -74,6 +74,12 @@ export class SuperPostPrimaryStack extends cdk.Stack {
       ]
     });
 
+    // CloudWatch log group for EventBridge events
+    const logGroup = new logs.LogGroup(this, 'SuperPostEventsLogGroup', {
+      logGroupName: '/aws/events/SuperPost',
+      removalPolicy: cdk.RemovalPolicy.DESTROY
+    });
+
     // EventBridge event rule to send events to secondary event bus
     new events.Rule(this, 'SendLettersRule', {
       ruleName: 'SendLetters',
@@ -85,6 +91,7 @@ export class SuperPostPrimaryStack extends cdk.Stack {
       },
       enabled: true,
       targets: [
+        new targets.CloudWatchLogGroup(logGroup),
         new targets.EventBus(
           events.EventBus.fromEventBusArn(this, 'SuperPostBus2', 
             `arn:aws:events:${regions.secondary}:${this.account}:event-bus/SuperPost`

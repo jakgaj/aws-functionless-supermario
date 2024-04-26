@@ -90,6 +90,9 @@ States:
           DetailType: LetterCollected
           Detail:
             letterId.$: $.letterId
+            sender.$: $.sender
+            recipient.$: $.recipient
+            topic.$: $.message.topic
             status.$: $.verification.status
             updatedAt.$: $.verification.updatedAt
             reaction.$: $.verification.reaction

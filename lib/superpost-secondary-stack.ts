@@ -64,6 +64,7 @@ export class SuperPostSecondaryStack extends cdk.Stack {
       })
     );
 
+    // CloudWatch log group for EventBridge events
     const logGroup = new logs.LogGroup(this, 'SuperPostEventsLogGroup', {
       logGroupName: '/aws/events/SuperPost',
       removalPolicy: cdk.RemovalPolicy.DESTROY
@@ -82,12 +83,11 @@ export class SuperPostSecondaryStack extends cdk.Stack {
       targets: [
         new targets.SfnStateMachine(machine, {
           input: events.RuleTargetInput.fromEventPath('$.detail')
-        }),
-        new targets.CloudWatchLogGroup(logGroup)
+        })
       ]
     });
 
-    // EventBridge event rule to log local events
+    // EventBridge event rule to send local events to CloudWatch Logs
     new events.Rule(this, 'LetterCollectedRule', {
       ruleName: 'LetterCollected',
       description: 'Log events related to collected letters',
