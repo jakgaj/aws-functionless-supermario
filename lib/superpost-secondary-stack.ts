@@ -5,6 +5,7 @@ import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as states from 'aws-cdk-lib/aws-stepfunctions';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as secrets from 'aws-cdk-lib/aws-secretsmanager';
+import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 
 export class SuperPostSecondaryStack extends cdk.Stack {
@@ -14,6 +15,12 @@ export class SuperPostSecondaryStack extends cdk.Stack {
     // EventBridge event bus
     const bus = new events.EventBus(this, 'SuperPostBus2', {
       eventBusName: 'SuperPost'
+    });
+
+    // SSM parameters
+    new StringParameter(this, 'SsmParam1', {
+      parameterName: '/superPost/scoreboard/hearts',
+      stringValue: '0'
     });
 
     // Secrets Manager secret object

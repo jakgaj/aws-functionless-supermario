@@ -8,7 +8,8 @@
     "build": "tsc",
     "watch": "tsc -w",
     "test": "jest",
-    "cdk": "cdk"
+    "cdk": "cdk",
+    "event": "sh src/events/import-letters.sh src/events/import-letters-cli.json eu-west-1"
   },
   "devDependencies": {
     "@types/jest": "^29.5.4",

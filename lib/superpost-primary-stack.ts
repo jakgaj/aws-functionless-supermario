@@ -4,6 +4,7 @@ import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as states from 'aws-cdk-lib/aws-stepfunctions';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 
 export class SuperPostPrimaryStack extends cdk.Stack {
@@ -15,6 +16,12 @@ export class SuperPostPrimaryStack extends cdk.Stack {
     // EventBridge event bus
     const bus = new events.EventBus(this, 'SuperPostBus1', {
       eventBusName: 'SuperPost'
+    });
+
+    // SSM parameters
+    new StringParameter(this, 'SsmParam1', {
+      parameterName: '/superPost/scoreboard/coins',
+      stringValue: '0'
     });
 
     // Step Functions state machine
@@ -40,6 +47,7 @@ export class SuperPostPrimaryStack extends cdk.Stack {
           "dynamodb:GetItem",
           "dynamodb:UpdateItem",
           "ssm:GetParameter*",
+          "ssm:PutParameter*",
           "events:PutEvents",
           "s3:GetObject",
           "states:StartExecution",

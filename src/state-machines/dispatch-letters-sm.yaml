@@ -140,5 +140,24 @@ States:
         MaxAttempts: 2
     TimeoutSeconds: 10
     HeartbeatSeconds: 3
-    End: true
+    Next: Load Scoreboard
     Comment: Send array of events to event bus in secondary region
+  Load Scoreboard:
+    Type: Task
+    Comment: Get coins from scoreboard in Parameters Store
+    Next: Update Scoreboard
+    Parameters:
+      Name: /superPost/scoreboard/coins
+    Resource: arn:aws:states:::aws-sdk:ssm:getParameter
+    ResultSelector:
+      coins.$: States.StringToJson($.Parameter.Value)
+    ResultPath: $.scoreboard
+  Update Scoreboard:
+    Type: Task
+    Comment: Add coin to scoreboard in Parameters Store
+    End: true
+    Parameters:
+      Name: /superPost/scoreboard/coins
+      Value.$: States.JsonToString(States.MathAdd($.scoreboard.coins, States.ArrayLength($.Entries)))
+      Overwrite: true
+    Resource: arn:aws:states:::aws-sdk:ssm:putParameter

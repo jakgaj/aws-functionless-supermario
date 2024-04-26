@@ -3,8 +3,8 @@ import { Construct } from 'constructs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
-import * as ssm from 'aws-cdk-lib/aws-ssm';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 
 export class SuperPostSharedStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -31,12 +31,12 @@ export class SuperPostSharedStack extends cdk.Stack {
     });
 
     // SSM parameters
-    new ssm.StringParameter(this, 'SsmParam1', {
+    new StringParameter(this, 'SsmParam1', {
       parameterName: '/superPost/config/bucketName',
       stringValue: bucket.bucketName
     });
 
-    new ssm.StringParameter(this, 'SsmParam2', {
+    new StringParameter(this, 'SsmParam2', {
       parameterName: '/superPost/config/documentsFile',
       stringValue: jsonFile.objectKey
     });
