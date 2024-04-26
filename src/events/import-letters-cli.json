@@ -1,0 +1,8 @@
+[
+  {
+    "EventBusName": "SuperPost",
+    "Source": "SuperPost",
+    "DetailType": "ImportLetters",
+    "Detail": "{}"
+  }
+]

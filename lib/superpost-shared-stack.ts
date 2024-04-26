@@ -26,6 +26,7 @@ export class SuperPostSharedStack extends cdk.Stack {
     const jsonFile = new s3deploy.DeployTimeSubstitutedFile(this, 'JsonFile', {
       source: 'src/bucket-content/superpost-documents.json',
       destinationBucket: bucket,
+      destinationKey: 'superpost-documents.json',
       substitutions: {}
     });
 
