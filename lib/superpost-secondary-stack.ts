@@ -18,10 +18,10 @@ export class SuperPostSecondaryStack extends cdk.Stack {
     });
 
     // SSM parameters
-    new StringParameter(this, 'SsmParam1', {
-      parameterName: '/superPost/scoreboard/hearts',
-      stringValue: '0'
-    });
+    // new StringParameter(this, 'SsmParam1', {
+    //   parameterName: '/superPost/scoreboard/hearts',
+    //   stringValue: '0'
+    // });
 
     // Secrets Manager secret object
     const secret = new secrets.Secret(this, 'ReactionsBank', {
@@ -58,12 +58,13 @@ export class SuperPostSecondaryStack extends cdk.Stack {
           "dynamodb:GetItem",
           "dynamodb:UpdateItem",
           "ssm:GetParameter*",
-          "ssm:PutParameter*",
+          // "ssm:PutParameter*",
           "events:PutEvents",
           "secretsmanager:GetSecretValue",
         ],
         resources: [
           `arn:aws:dynamodb:*:${this.account}:table/SuperMailbox`,
+          `arn:aws:dynamodb:*:${this.account}:table/SuperScoreboard`,
           `arn:aws:ssm:*:${this.account}:parameter/superPost/*`,
           `arn:aws:events:*:${this.account}:event-bus/SuperPost`,
           `arn:aws:secretsmanager:*:${this.account}:secret:ReactionsBank*`

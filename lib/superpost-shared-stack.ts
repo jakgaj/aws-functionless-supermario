@@ -58,6 +58,23 @@ export class SuperPostSharedStack extends cdk.Stack {
       ],
     });
 
+    // DynamoDB global table
+    new dynamodb.TableV2(this, 'SuperScoreboardTable', {
+      tableName: 'SuperScoreboard',
+      partitionKey: {
+        name: 'characterName',
+        type: dynamodb.AttributeType.STRING
+      },
+      billing: dynamodb.Billing.onDemand(),
+      tableClass: dynamodb.TableClass.STANDARD_INFREQUENT_ACCESS,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      deletionProtection: false,
+      pointInTimeRecovery: false,
+      replicas: [
+        { region: regions.secondary }
+      ],
+    });
+
     // CloudWatch Dashboard for EventBridge events
     const dashboard = new cloudwatch.Dashboard(this, 'CwDashboard', {
       dashboardName: 'SuperPost',

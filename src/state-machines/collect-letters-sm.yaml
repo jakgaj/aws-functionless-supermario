@@ -2,11 +2,12 @@ Comment: Collect Letters State Machine
 StartAt: Get Ready
 States:
   Get Ready:
-    Type: Wait
-    Seconds: 30
-    Next: Validate Status
     Comment: Delay the workflow execution to get ready
-  Validate Status:
+    Type: Wait
+    Seconds: 20
+    Next: Validate Letter
+  Validate Letter:
+    Comment: Validate that letter status is new it is a love letter
     Type: Choice
     Choices:
       - And:
@@ -20,14 +21,13 @@ States:
             StringMatches: LOVE_LETTER
         Next: Get Reaction Emoji
     Default: Failed
-    Comment: Validate that letter status is new it is a love letter
   Get Reaction Emoji:
+    Comment: Get reaction emoji from Reactions Bank
     Type: Task
     Parameters:
       SecretId: ReactionsBank
     Resource: arn:aws:states:::aws-sdk:secretsmanager:getSecretValue
     Next: Add Verification Parameters
-    Comment: Get reaction emoji from Reactions Bank
     Retry:
       - ErrorEquals:
           - States.ALL
@@ -42,15 +42,16 @@ States:
     ResultSelector:
       secret.$: States.StringToJson($.SecretString)
   Add Verification Parameters:
+    Comment: Add extra parameters to invoice data
     Type: Pass
     Next: Update Super Mailbox
     ResultPath: $.verification
-    Comment: Add extra parameters to invoice data
     Parameters:
       updatedAt.$: $$.Execution.StartTime
       status: COLLECTED
       reaction.$: States.Base64Decode($.result.secretsManager.secret.heartPurple)
   Update Super Mailbox:
+    Comment: Add or update records in DynamoDB global table
     Type: Task
     Resource: arn:aws:states:::dynamodb:updateItem
     Parameters:
@@ -78,9 +79,40 @@ States:
           - States.ALL
         Next: Failed
     ResultPath: $.result.dynamoDb
+    Next: Update Super Scoreboard
+  Update Super Scoreboard:
+    Comment: Add or update records in DynamoDB global table
+    Type: Task
+    Resource: arn:aws:states:::dynamodb:updateItem
+    Parameters:
+      TableName: SuperScoreboard
+      Key:
+        characterName:
+          S.$: $.recipient.name
+      UpdateExpression: ADD scoreHearts :scoreValue SET updatedAt = :updatedAt
+      ExpressionAttributeValues:
+        ':scoreValue':
+          N: '1'
+        ':updatedAt':
+          S.$: $$.Execution.StartTime
+      ReturnValues: UPDATED_NEW
+    ResultPath: $.result.dynamoDb
+    Retry:
+      - ErrorEquals:
+          - States.ALL
+        BackoffRate: 2
+        IntervalSeconds: 1
+        MaxAttempts: 2
+    Catch:
+      - ErrorEquals:
+          - States.ALL
+        Next: Failed
     Next: Send Event
-    Comment: Add or update item in DynamoDB global table
+  Failed:
+    Type: Fail
+    Comment: Fail state
   Send Event:
+    Comment: Send event to local bus
     Type: Task
     Resource: arn:aws:states:::events:putEvents
     Parameters:
@@ -104,27 +136,4 @@ States:
         MaxAttempts: 2
     TimeoutSeconds: 10
     HeartbeatSeconds: 3
-    Next: Load Scoreboard
-    Comment: Send event to local bus
-  Load Scoreboard:
-    Type: Task
-    Comment: Get hearts from scoreboard in Parameters Store
-    Next: Update Scoreboard
-    Parameters:
-      Name: /superPost/scoreboard/hearts
-    Resource: arn:aws:states:::aws-sdk:ssm:getParameter
-    ResultSelector:
-      hearts.$: States.StringToJson($.Parameter.Value)
-    ResultPath: $.scoreboard
-  Update Scoreboard:
-    Type: Task
-    Comment: Add heart to scoreboard in Parameters Store
     End: true
-    Parameters:
-      Name: /superPost/scoreboard/hearts
-      Value.$: States.JsonToString(States.MathAdd($.scoreboard.hearts, 1))
-      Overwrite: true
-    Resource: arn:aws:states:::aws-sdk:ssm:putParameter
-  Failed:
-    Type: Fail
-    Comment: Fail state

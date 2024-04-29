@@ -19,10 +19,10 @@ export class SuperPostPrimaryStack extends cdk.Stack {
     });
 
     // SSM parameters
-    new StringParameter(this, 'SsmParam1', {
-      parameterName: '/superPost/scoreboard/coins',
-      stringValue: '0'
-    });
+    // new StringParameter(this, 'SsmParam1', {
+    //   parameterName: '/superPost/scoreboard/coins',
+    //   stringValue: '0'
+    // });
 
     // Step Functions state machine
     const machine = new states.StateMachine(this, 'DispatchLettersStateMachine', {
@@ -47,7 +47,7 @@ export class SuperPostPrimaryStack extends cdk.Stack {
           "dynamodb:GetItem",
           "dynamodb:UpdateItem",
           "ssm:GetParameter*",
-          "ssm:PutParameter*",
+          // "ssm:PutParameter*",
           "events:PutEvents",
           "s3:GetObject",
           "states:StartExecution",
@@ -56,6 +56,7 @@ export class SuperPostPrimaryStack extends cdk.Stack {
         ],
         resources: [
           `arn:aws:dynamodb:*:${this.account}:table/SuperMailbox`,
+          `arn:aws:dynamodb:*:${this.account}:table/SuperScoreboard`,
           `arn:aws:ssm:*:${this.account}:parameter/superPost/*`,
           `arn:aws:events:*:${this.account}:event-bus/SuperPost`,
           `arn:aws:s3:::aws-functionless-supermario-${this.account}-${this.region}/*`,

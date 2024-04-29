@@ -3,6 +3,7 @@ StartAt: Get Documents
 TimeoutSeconds: 300
 States:
   Get Documents:
+    Comment: Get configuration stored in Parameters Store
     Type: Task
     Next: Letters
     Parameters:
@@ -13,10 +14,9 @@ States:
     ResultSelector:
       bucketName.$: $.Parameters[0].Value
       bucketKey.$: $.Parameters[1].Value
-    Comment: Get configuration stored in Parameters Store
   Letters:
-    Type: Map
     Comment: Create an array from JSON file stored in S3 Bucket
+    Type: Map
     Label: Letters
     ItemReader:
       Resource: arn:aws:states:::s3:getObject
@@ -32,6 +32,7 @@ States:
       StartAt: Validate Document
       States:
         Validate Document:
+          Comment: Check if the document is a love letter
           Type: Choice
           Choices:
             - And:
@@ -41,8 +42,8 @@ States:
                   StringEquals: LOVE_LETTER
               Next: Generate Letter ID
           Default: Failed
-          Comment: Check if the document is a love letter
         Generate Letter ID:
+          Comment: Add letter ID and status to the document
           Type: Pass
           Next: Update Super Mailbox
           ResultPath: $.generate
@@ -50,8 +51,8 @@ States:
             letterId.$: States.UUID()
             updatedAt.$: $$.Execution.StartTime
             status: NEW
-          Comment: Add letter ID and status to the document
         Update Super Mailbox:
+          Comment: Add or update records in DynamoDB table
           Type: Task
           Resource: arn:aws:states:::dynamodb:putItem
           Parameters:
@@ -85,7 +86,6 @@ States:
                     S.$: $.message.content
                   language:
                     S.$: $.message.language
-          Next: New Letter Event
           ResultPath: $.result.dynamoDb
           Retry:
             - ErrorEquals:
@@ -99,8 +99,39 @@ States:
               Next: Failed
           TimeoutSeconds: 10
           HeartbeatSeconds: 3
-          Comment: Add or update record in DynamoDB table
+          Next: Update Super Scoreboard
+        Update Super Scoreboard:
+          Comment: Add or update records in DynamoDB table
+          Type: Task
+          Resource: arn:aws:states:::dynamodb:updateItem
+          Parameters:
+            TableName: SuperScoreboard
+            Key:
+              characterName:
+                S.$: $.sender.name
+            UpdateExpression: ADD scoreCoins :scoreValue SET updatedAt = :updatedAt
+            ExpressionAttributeValues:
+              ':scoreValue':
+                N: '1'
+              ':updatedAt':
+                S.$: $$.Execution.StartTime
+            ReturnValues: UPDATED_NEW
+          ResultPath: $.result.dynamoDb
+          Retry:
+            - ErrorEquals:
+                - States.ALL
+              BackoffRate: 2
+              IntervalSeconds: 1
+              MaxAttempts: 2
+          Catch:
+            - ErrorEquals:
+                - States.ALL
+              Next: Failed
+          TimeoutSeconds: 10
+          HeartbeatSeconds: 3
+          Next: New Letter Event
         New Letter Event:
+          Comment: Create formatted event with letters data
           Type: Pass
           End: true
           Parameters:
@@ -122,12 +153,12 @@ States:
             DetailType: NewLetters
             EventBusName: SuperPost
             Source: SuperPost
-          Comment: Create formatted event with letters data
         Failed:
           Type: Fail
           Comment: Fail state
     Next: Send Events
   Send Events:
+    Comment: Send array of events to event bus in secondary region
     Type: Task
     Resource: arn:aws:states:::events:putEvents
     Parameters:
@@ -140,24 +171,4 @@ States:
         MaxAttempts: 2
     TimeoutSeconds: 10
     HeartbeatSeconds: 3
-    Next: Load Scoreboard
-    Comment: Send array of events to event bus in secondary region
-  Load Scoreboard:
-    Type: Task
-    Comment: Get coins from scoreboard in Parameters Store
-    Next: Update Scoreboard
-    Parameters:
-      Name: /superPost/scoreboard/coins
-    Resource: arn:aws:states:::aws-sdk:ssm:getParameter
-    ResultSelector:
-      coins.$: States.StringToJson($.Parameter.Value)
-    ResultPath: $.scoreboard
-  Update Scoreboard:
-    Type: Task
-    Comment: Add coin to scoreboard in Parameters Store
     End: true
-    Parameters:
-      Name: /superPost/scoreboard/coins
-      Value.$: States.JsonToString(States.MathAdd($.scoreboard.coins, States.ArrayLength($.Entries)))
-      Overwrite: true
-    Resource: arn:aws:states:::aws-sdk:ssm:putParameter
