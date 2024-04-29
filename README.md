@@ -67,6 +67,7 @@ npm run event
 
 ## Useful commands
 
+* `npm install`           installs all required NPM packages
 * `npm run build`         compiles TypeScript to JavaScript
 * `cdk synth --all`       emits the synthesized CloudFormation templates
 * `cdk deploy --all`      deploys all stacks to your default AWS account
